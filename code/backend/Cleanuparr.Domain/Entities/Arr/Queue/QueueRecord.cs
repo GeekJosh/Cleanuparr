@@ -30,6 +30,13 @@ public sealed record QueueRecord
     
     public QueueBook? Book { get; init; }
     
+    // Whisparr
+    public long WhisparrSeriesId { get; init; }
+    
+    public long WhisparrEpisodeId { get; init; }
+    
+    public QueueSeries? WhisparrSeries { get; init; }
+    
     // common
     public required string Title { get; init; }
     public string Status { get; init; }

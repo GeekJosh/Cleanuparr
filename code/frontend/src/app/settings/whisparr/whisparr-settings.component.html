@@ -1,0 +1,314 @@
+@if (loadError()) {
+  <app-loading-error-state 
+    [error]="loadError()!">
+  </app-loading-error-state>
+} @else {
+  <!-- Global Settings Card -->
+  <p-card>
+    <ng-template pTemplate="header">
+      <div class="card-header">
+        <h2 class="card-title">
+          <i class="fas fa-book"></i>
+          Global Whisparr Settings
+        </h2>
+      </div>
+    </ng-template>
+
+    @if (loading()) {
+      <div class="flex justify-content-center">
+        <p-progressSpinner strokeWidth="3" animationDuration="1s"></p-progressSpinner>
+      </div>
+    } @else {
+      <form [formGroup]="globalForm" (ngSubmit)="saveGlobalConfig()">
+        <div class="field-row">
+          <label class="field-label">
+            Failed Import Max Strikes
+            <i 
+              class="pi pi-info-circle field-info-icon" 
+              pTooltip="Maximum number of failed import attempts before giving up (-1 for unlimited)"
+              tooltipPosition="top"
+            ></i>
+          </label>
+          <div class="field-input">
+            <p-inputNumber
+              formControlName="failedImportMaxStrikes"
+              [min]="-1"
+              [max]="100"
+              [showButtons]="true"
+              placeholder="Enter max strikes (-1 for unlimited)"
+            ></p-inputNumber>
+            @if (hasError(globalForm, 'failedImportMaxStrikes', 'required')) {
+              <small class="p-error">Failed import max strikes is required</small>
+            }
+            @if (hasError(globalForm, 'failedImportMaxStrikes', 'min')) {
+              <small class="p-error">Value must be -1 or greater</small>
+            }
+            <small class="form-helper-text">
+              Set the maximum number of failed import attempts before giving up on a download. 
+              Use -1 for unlimited attempts.
+            </small>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="card-footer mt-3">
+          <button
+            pButton
+            type="submit"
+            label="Save"
+            icon="pi pi-save"
+            class="p-button-primary"
+            [disabled]="!globalForm.dirty || globalForm.invalid || saving()"
+            [loading]="saving()"
+          ></button>
+          <button
+            pButton
+            type="button"
+            label="Reset"
+            icon="pi pi-refresh"
+            class="p-button-secondary p-button-outlined ml-2"
+            [disabled]="!globalForm.dirty"
+            (click)="resetGlobalConfig()"
+          ></button>
+        </div>
+      </form>
+    }
+  </p-card>
+
+  <!-- Instances Management Card -->
+  <p-card class="mt-4">
+    <ng-template pTemplate="header">
+      <div class="card-header">
+        <h2 class="card-title">
+          <i class="fas fa-server"></i>
+          Whisparr Instances
+        </h2>
+        <button
+          pButton
+          type="button"
+          label="Add Instance"
+          icon="pi pi-plus"
+          class="p-button-success"
+          (click)="openCreateInstanceDialog()"
+        ></button>
+      </div>
+    </ng-template>
+
+    @if (loading()) {
+      <div class="flex justify-content-center">
+        <p-progressSpinner strokeWidth="3" animationDuration="1s"></p-progressSpinner>
+      </div>
+    } @else {
+      @if (config()?.instances && config()!.instances.length > 0) {
+        <p-table [value]="config()?.instances || []" [responsive]="true">
+          <ng-template pTemplate="header">
+            <tr>
+              <th style="width: 10%">Status</th>
+              <th style="width: 25%">Name</th>
+              <th style="width: 40%">URL</th>
+              <th style="width: 15%">API Key</th>
+              <th style="width: 10%">Actions</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-instance>
+            <tr>
+              <td>
+                @if (instance.enabled) {
+                  <span class="status-badge status-enabled">
+                    <i class="pi pi-check"></i>
+                    Enabled
+                  </span>
+                } @else {
+                  <span class="status-badge status-disabled">
+                    <i class="pi pi-times"></i>
+                    Disabled
+                  </span>
+                }
+              </td>
+              <td>
+                <strong>{{ instance.name }}</strong>
+              </td>
+              <td>
+                <a [href]="instance.url" target="_blank" class="url-link">
+                  {{ instance.url }}
+                  <i class="pi pi-external-link ml-1"></i>
+                </a>
+              </td>
+              <td>
+                <span class="api-key-display">{{ '***' + instance.apiKey.slice(-4) }}</span>
+              </td>
+              <td>
+                <div class="table-actions">
+                  <button
+                    pButton
+                    type="button"
+                    icon="pi pi-pencil"
+                    class="p-button-text p-button-rounded p-button-plain"
+                    pTooltip="Edit instance"
+                    tooltipPosition="top"
+                    (click)="openEditInstanceDialog(instance)"
+                  ></button>
+                  <button
+                    pButton
+                    type="button"
+                    icon="pi pi-trash"
+                    class="p-button-text p-button-rounded p-button-danger"
+                    pTooltip="Delete instance"
+                    tooltipPosition="top"
+                    (click)="deleteInstance(instance)"
+                  ></button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      } @else {
+        <div class="empty-state">
+          <i class="pi pi-server empty-state-icon"></i>
+          <h3>No Whisparr instances configured</h3>
+          <p>Add your first Whisparr instance to get started.</p>
+          <button
+            pButton
+            type="button"
+            label="Add Instance"
+            icon="pi pi-plus"
+            class="p-button-primary"
+            (click)="openCreateInstanceDialog()"
+          ></button>
+        </div>
+      }
+    }
+  </p-card>
+}
+
+<!-- Instance Create/Edit Dialog -->
+<p-dialog
+  [header]="isEditMode ? 'Edit Whisparr Instance' : 'Add Whisparr Instance'"
+  [(visible)]="showInstanceDialog"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [closable]="true"
+  styleClass="instance-dialog"
+  (onHide)="closeInstanceDialog()"
+>
+  <form [formGroup]="instanceForm" (ngSubmit)="saveInstance()">
+    <div class="field-row">
+      <label class="field-label">
+        Enabled
+        <i 
+          class="pi pi-info-circle field-info-icon" 
+          pTooltip="Whether this Whisparr instance is active"
+          tooltipPosition="top"
+        ></i>
+      </label>
+      <div class="field-input">
+        <p-checkbox formControlName="enabled" [binary]="true"></p-checkbox>
+        <small class="form-helper-text">Enable or disable this Whisparr instance</small>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label">
+        Name *
+        <i 
+          class="pi pi-info-circle field-info-icon" 
+          pTooltip="A friendly name for this Whisparr instance"
+          tooltipPosition="top"
+        ></i>
+      </label>
+      <div class="field-input">
+        <input
+          pInputText
+          formControlName="name"
+          placeholder="My Whisparr Server"
+          autocomplete="off"
+        />
+        @if (hasError(instanceForm, 'name', 'required')) {
+          <small class="p-error">Name is required</small>
+        }
+        @if (hasError(instanceForm, 'name', 'minlength')) {
+          <small class="p-error">Name must be at least 1 character long</small>
+        }
+        <small class="form-helper-text">Give this instance a memorable name</small>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label">
+        URL *
+        <i 
+          class="pi pi-info-circle field-info-icon" 
+          pTooltip="The full URL to your Whisparr instance (include http:// or https://)"
+          tooltipPosition="top"
+        ></i>
+      </label>
+      <div class="field-input">
+        <input
+          pInputText
+          formControlName="url"
+          placeholder="https://whisparr.example.com"
+          autocomplete="off"
+        />
+        @if (hasError(instanceForm, 'url', 'required')) {
+          <small class="p-error">URL is required</small>
+        }
+        @if (hasError(instanceForm, 'url', 'pattern')) {
+          <small class="p-error">URL must start with http:// or https://</small>
+        }
+        <small class="form-helper-text">The complete URL to access your Whisparr instance</small>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label">
+        API Key *
+        <i 
+          class="pi pi-info-circle field-info-icon" 
+          pTooltip="Your Whisparr API key found in Settings > General"
+          tooltipPosition="top"
+        ></i>
+      </label>
+      <div class="field-input">
+        <input
+          pInputText
+          formControlName="apiKey"
+          placeholder="Your Whisparr API Key"
+          autocomplete="off"
+          type="password"
+        />
+        @if (hasError(instanceForm, 'apiKey', 'required')) {
+          <small class="p-error">API Key is required</small>
+        }
+        @if (hasError(instanceForm, 'apiKey', 'minlength')) {
+          <small class="p-error">API Key must be at least 1 character long</small>
+        }
+        <small class="form-helper-text">
+          Find this in Whisparr under Settings > General > Security > API Key
+        </small>
+      </div>
+    </div>
+
+    <div class="dialog-footer mt-4">
+      <button
+        pButton
+        type="button"
+        label="Cancel"
+        icon="pi pi-times"
+        class="p-button-text"
+        (click)="closeInstanceDialog()"
+      ></button>
+      <button
+        pButton
+        type="submit"
+        [label]="isEditMode ? 'Update' : 'Create'"
+        [icon]="isEditMode ? 'pi pi-save' : 'pi pi-plus'"
+        class="p-button-primary"
+        [disabled]="instanceForm.invalid"
+      ></button>
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Confirmation dialogs -->
+<p-confirmDialog></p-confirmDialog> 
